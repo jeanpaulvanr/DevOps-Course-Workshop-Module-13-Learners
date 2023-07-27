@@ -1,3 +1,5 @@
+import logging
+
 from flask import Flask, render_template, request
 from datetime import datetime, timezone
 
@@ -7,12 +9,27 @@ from data.database import initialise_database, add_order, clear_orders, count_or
 from scheduled_jobs import initialise_scheduled_jobs
 from products import create_product_download
 import requests
+
+from opencensus.ext.azure.log_exporter import AzureLogHandler
+from opencensus.ext.azure.trace_exporter import AzureExporter
+from opencensus.ext.flask.flask_middleware import FlaskMiddleware
+from opencensus.trace.samplers import ProbabilitySampler
+
 app = Flask(__name__)
 app.config.from_object(Config)
+
+app.logger.addHandler(AzureLogHandler())
+
+middleware = FlaskMiddleware(
+    app,
+    exporter=AzureExporter(),
+    sampler=ProbabilitySampler(rate=1.0),
+)
 
 initialise_database(app)
 initialise_scheduled_jobs(app)
 
+logging.basicConfig(level=logging.INFO)
 
 @app.route("/")
 def index():
